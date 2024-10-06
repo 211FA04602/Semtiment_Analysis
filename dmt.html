@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Input Sentiment Analysis with Keyword Extraction</title>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,600,700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-image: url('/api/placeholder/1920/1080');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
+            width: 768px;
+            max-width: 100%;
+            padding: 2rem;
+        }
+        h1 {
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #4B79A1;
+        }
+        .form-control {
+            background-color: #f8f9fa;
+            border: none;
+            padding: 12px 15px;
+            margin: 8px 0;
+            font-family: 'Montserrat', sans-serif;
+            border-radius: 8px;
+        }
+        .form-control:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #4B79A1;
+        }
+        .btn-custom {
+            border-radius: 30px;
+            border: none;
+            background-color: #4B79A1;
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 12px 45px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: transform 80ms ease-in, background-color 0.3s;
+        }
+        .btn-custom:hover {
+            background-color: #3a617f;
+        }
+        .emoji-picker {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        .emoji-btn {
+            font-size: 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            margin: 0 5px;
+            transition: transform 0.2s;
+        }
+        .emoji-btn:hover {
+            transform: scale(1.2);
+        }
+        #inputList {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        #result {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .sentiment-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        #keywords {
+            font-style: italic;
+            color: #4B79A1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Multi-Input Sentiment Analysis with Keyword Extraction</h1>
+        <div id="inputList"></div>
+        <div class="mb-3">
+            <textarea class="form-control" id="review" rows="2" placeholder="Type your comment here..."></textarea>
+            <div class="emoji-picker">
+                <button type="button" class="emoji-btn" onclick="addEmoji('😊')">😊</button>
+                <button type="button" class="emoji-btn" onclick="addEmoji('😐')">😐</button>
+                <button type="button" class="emoji-btn" onclick="addEmoji('😞')">😞</button>
+                <button type="button" class="emoji-btn" onclick="addEmoji('👍')">👍</button>
+                <button type="button" class="emoji-btn" onclick="addEmoji('👎')">👎</button>
+            </div>
+        </div>
+        <div class="mb-3">
+            <input type="number" class="form-control" id="rating" placeholder="Rating (1-5)" min="1" max="5">
+        </div>
+        <div class="d-flex justify-content-between mb-4">
+            <button type="button" class="btn btn-custom" onclick="addInput()">Add Input</button>
+            <button type="button" class="btn btn-custom" onclick="generateReview()">Generate Review</button>
+        </div>
+        <div id="resultContainer" class="text-center" style="display: none;">
+            <h2>Analysis Result</h2>
+            <div class="sentiment-icon" id="sentimentIcon"></div>
+            <p id="result"></p>
+            <p id="generatedReview"></p>
+            <p>Key words: <span id="keywords"></span></p>
+            <button type="button" class="btn btn-custom mt-4" onclick="resetAnalysis()">Start Over</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let inputs = [];
+
+        function addEmoji(emoji) {
+            const review = document.getElementById('review');
+            review.value += emoji;
+        }
+
+        function addInput() {
+            const review = document.getElementById('review').value;
+            const rating = document.getElementById('rating').value;
+            
+            if (review.trim() === '' && rating === '') {
+                alert('Please enter a comment or rating.');
+                return;
+            }
+
+            inputs.push({ review, rating });
+            updateInputList();
+            clearInputFields();
+        }
+
+        function updateInputList() {
+            const inputList = document.getElementById('inputList');
+            inputList.innerHTML = inputs.map((input, index) => `
+                <div class="input-group">
+                    <span class="input-group-text">#${index + 1}</span>
+                    <input type="text" class="form-control" value="${input.review}" readonly>
+                    <span class="input-group-text">Rating: ${input.rating || 'N/A'}</span>
+                    <button class="btn btn-outline-danger" onclick="removeInput(${index})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function removeInput(index) {
+            inputs.splice(index, 1);
+            updateInputList();
+        }
+
+        function clearInputFields() {
+            document.getElementById('review').value = '';
+            document.getElementById('rating').value = '';
+        }
+
+        function analyzeSentiment(text, rating) {
+            const positiveWords = ['good', 'great', 'excellent', 'amazing', 'love', 'best'];
+            const negativeWords = ['bad', 'poor', 'terrible', 'awful', 'worst', 'hate'];
+
+            let score = 0;
+
+            positiveWords.forEach(word => {
+                if (text.toLowerCase().includes(word)) score++;
+            });
+
+            negativeWords.forEach(word => {
+                if (text.toLowerCase().includes(word)) score--;
+            });
+
+            if (text.includes('😊') || text.includes('👍')) score += 2;
+            if (text.includes('😞') || text.includes('👎')) score -= 2;
+            if (text.includes('😐')) score += 0;
+
+            if (rating >= 4) score += 2;
+            else if (rating <= 2) score -= 2;
+
+            return score > 0 ? 'positive' : score < 0 ? 'negative' : 'neutral';
+        }
+
+        function extractKeywords(texts) {
+            const words = texts.join(' ').toLowerCase().split(/\W+/);
+            const wordCount = {};
+            const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']);
+
+            words.forEach(word => {
+                if (!stopWords.has(word) && word.length > 2) {
+                    wordCount[word] = (wordCount[word] || 0) + 1;
+                }
+            });
+
+            return Object.entries(wordCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5)
+                .map(entry => entry[0]);
+        }
+
+        function generateReview() {
+            if (inputs.length === 0) {
+                alert('Please add at least one input before generating a review.');
+                return;
+            }
+
+            let sentiments = {
+                positive: 0,
+                neutral: 0,
+                negative: 0
+            };
+            let ratings = [];
+            let reviewTexts = [];
+
+            inputs.forEach(input => {
+                const sentiment = analyzeSentiment(input.review, input.rating);
+                sentiments[sentiment]++;
+                if (input.rating) ratings.push(parseInt(input.rating));
+                if (input.review.trim() !== '') {
+                    reviewTexts.push(input.review);
+                }
+            });
+
+            const majoritySentiment = Object.keys(sentiments).reduce((a, b) => sentiments[a] > sentiments[b] ? a : b);
+            const averageRating = ratings.length > 0 ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : 'N/A';
+
+            const result = document.getElementById('result');
+            const sentimentIcon = document.getElementById('sentimentIcon');
+            const generatedReview = document.getElementById('generatedReview');
+            const keywords = document.getElementById('keywords');
+
+            result.textContent = `Overall Sentiment: ${majoritySentiment.charAt(0).toUpperCase() + majoritySentiment.slice(1)}`;
+            result.className = `fs-4 fw-bold ${
+                majoritySentiment === 'positive' ? 'text-success' : 
+                majoritySentiment === 'negative' ? 'text-danger' : 
+                'text-warning'
+            }`;
+
+            sentimentIcon.innerHTML = majoritySentiment === 'positive' ? '😊' : majoritySentiment === 'negative' ? '😞' : '😐';
+
+            let reviewSummary = `Based on the majority of inputs, the overall sentiment is ${majoritySentiment}. `;
+            reviewSummary += `The average rating is ${averageRating} out of 5. `;
+
+            if (reviewTexts.length > 0) {
+                reviewSummary += "Key points from the comments include: " + reviewTexts.join(". ") + ".";
+            }
+
+            generatedReview.textContent = reviewSummary;
+
+            const extractedKeywords = extractKeywords(reviewTexts);
+            keywords.textContent = extractedKeywords.join(', ');
+
+            document.getElementById('resultContainer').style.display = 'block';
+        }
+
+        function resetAnalysis() {
+            inputs = [];
+            updateInputList();
+            clearInputFields();
+            document.getElementById('resultContainer').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
